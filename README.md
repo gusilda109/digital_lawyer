@@ -9,3 +9,25 @@
 ```
 streamlit run app/app.py
 ```
+
+# Как посмотреть данные в БД?
+
+В терминале запускаем команду 
+
+```
+sqlite3 db/app.sqlite
+```
+
+Далее через виртуальный интерфейс смотрим записи:
+
+*Для просмотра пользователей*
+
+```
+SELECT * FROM Users ORDER BY id DESC
+```
+
+*Для просмотра дел*
+
+```
+SELECT * FROM Cases ORDER BY id DESC
+```
