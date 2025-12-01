@@ -1,0 +1,185 @@
+@startuml
+' ER-диаграмма DA-14 (SQLite) с NLP и без court_override
+' * = PK, + = FK
+hide circle
+hide methods
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor White
+  ArrowColor Black
+  BorderColor Black
+}
+left to right direction
+
+' --- Пользователи ---
+entity "Пользователи" as Users {
+  * id : INTEGER <<PK>>      -- уникальный ID пользователя
+  --
+  fio : TEXT                  -- ФИО
+  email : TEXT                -- почта для уведомлений/выгрузок
+  phone : TEXT                -- телефон (опц.)
+  resident_region : TEXT      -- регион проживания истца
+  resident_city : TEXT        -- город проживания истца
+  resident_address : TEXT     -- полный адрес истца
+  preferred_court_id : INTEGER -- предпочитаемый суд по умолчанию (опц.)
+}
+
+' --- Суды ---
+entity "Суды" as Courts {
+  * id : INTEGER <<PK>>      -- уникальный ID суда
+  --
+  name : TEXT                -- официальное наименование суда
+  court_level : TEXT         -- уровень: "мировой" | "районный" | ...
+  region : TEXT              -- субъект РФ
+  city : TEXT                -- город/населённый пункт
+  address : TEXT             -- адрес суда
+  jurisdiction_notes : TEXT  -- примечания по подсудности (опц.)
+}
+
+' --- Дела (включая флаги доказательств) ---
+entity "Дела" as Cases {
+  * id : INTEGER <<PK>>                                  -- уникальный ID дела
+  + user_id : INTEGER <<FK Пользователи.id>>             -- владелец дела
+  + court_id : INTEGER <<FK Суды.id>>                    -- выбранный суд (может быть NULL до выбора)
+  --
+  category : TEXT  -- 'return_goods' | 'housing_utilities' | 'minor_injury'
+  description : TEXT       -- свободное текстовое описание ситуации пользователем
+  opponent_name : TEXT     -- ответчик (продавец/УК/физ.лицо)
+  opponent_address : TEXT  -- адрес ответчика
+  amount : REAL            -- сумма требований (руб.)
+  event_date : TEXT        -- дата события (ISO 8601)
+  p_success : REAL         -- оценка вероятности успеха (0..1)
+  status : TEXT            -- статус: draft|analysis|docs_ready|scheduled
+  created_at : TEXT        -- дата создания
+  updated_at : TEXT        -- дата изменения
+
+  --
+  -- I. Возврат товара надлежащего качества (ЗоЗПП)
+  --
+  rg_has_purchase_doc : INTEGER       -- 0/1: документ о покупке
+  rg_has_claim_letter : INTEGER       -- 0/1: претензия о возврате товара и денег
+  rg_has_claim_send_proof : INTEGER   -- 0/1: подтверждение отправки претензии
+  rg_has_goods_return_proof : INTEGER -- 0/1: подтверждение возврата товара
+  rg_opt_media_product : INTEGER      -- 0/1: фото/видео товара (желательно)
+  rg_opt_chat_with_seller : INTEGER   -- 0/1: переписка с продавцом (желательно)
+  rg_opt_seller_response : INTEGER    -- 0/1: ответ продавца (желательно)
+  rg_opt_delivery_expenses_docs : INTEGER -- 0/1: документы об оплате доставки (желательно)
+  rg_opt_witnesses : INTEGER          -- 0/1: свидетели (желательно)
+
+  --
+  -- II. Компенсация расходов за услуги ЖКХ
+  --
+  hu_has_bills_contracts : INTEGER    -- 0/1: квитанции/счета/договоры
+  hu_has_payment_docs : INTEGER       -- 0/1: платёжные документы
+  hu_has_property_contract : INTEGER  -- 0/1: договор собственности/найма
+  hu_has_claim_to_uk : INTEGER        -- 0/1: претензия в УК/поставщику
+  hu_has_claim_send_proof : INTEGER   -- 0/1: подтверждение отправки претензии
+  hu_has_compensation_calc : INTEGER  -- 0/1: расчёт суммы компенсации
+  hu_opt_inspection_acts : INTEGER    -- 0/1: акты обследования/фиксации нарушений
+  hu_opt_issue_photos : INTEGER       -- 0/1: фото/видео неисправностей
+  hu_opt_chat_with_uk : INTEGER       -- 0/1: переписка с УК/поставщиком
+  hu_opt_expert_reports : INTEGER     -- 0/1: заключения экспертов/техотчёты
+  hu_opt_neighbor_witnesses : INTEGER -- 0/1: показания соседей
+  hu_opt_damage_expense_docs : INTEGER -- 0/1: документы об убытках/ремонте
+
+  hu_mo_has_motion_body : INTEGER     -- 0/1: текст ходатайства (ЖКХ)
+  hu_mo_has_support_docs : INTEGER    -- 0/1: приложения к ходатайству
+  hu_mo_has_copy_proof : INTEGER      -- 0/1: подтверждение направления копии
+  hu_ob_has_service_contract : INTEGER -- 0/1: договор на ЖКХ (возражение)
+  hu_ob_has_charge_calc : INTEGER     -- 0/1: расчёты начислений/оплаты
+  hu_ob_has_work_acts : INTEGER       -- 0/1: акты выполненных работ
+  hu_ob_has_claim_answers : INTEGER   -- 0/1: ответы на претензии
+  hu_ob_has_financial_docs : INTEGER  -- 0/1: фин.документы (выписки/счета)
+
+  --
+  -- III. Возмещение вреда здоровью (лёгкий вред)
+  --
+  mi_has_med_docs : INTEGER           -- 0/1: мед. документы
+  mi_has_trauma_cert : INTEGER        -- 0/1: справка травмпункта/больницы
+  mi_has_causality_proof : INTEGER    -- 0/1: доказ-ва причинной связи
+  mi_has_treatment_receipts : INTEGER -- 0/1: чеки/квитанции за лечение/транспорт
+  mi_has_preclaim : INTEGER           -- 0/1: досудебная претензия
+  mi_has_identity_doc : INTEGER       -- 0/1: документ личности
+  mi_opt_accident_act : INTEGER       -- 0/1: акт о несчастном случае
+  mi_opt_scene_media : INTEGER        -- 0/1: фото/видео с места
+  mi_opt_witnesses : INTEGER          -- 0/1: свидетели
+  mi_opt_forensic_exam : INTEGER      -- 0/1: СМЭ
+  mi_opt_defendant_corresp : INTEGER  -- 0/1: переписка с ответчиком/страховой
+  mi_opt_sick_leave : INTEGER         -- 0/1: больничный лист
+  mi_opt_income_statement : INTEGER   -- 0/1: справка о доходах до травмы
+  mi_opt_psych_report : INTEGER       -- 0/1: психол. заключение
+
+  mi_mo_has_motion_body : INTEGER     -- 0/1: текст ходатайства (вред здоровью)
+  mi_mo_has_support_docs : INTEGER    -- 0/1: док-ты для ходатайства
+  mi_mo_has_copy_proof : INTEGER      -- 0/1: подтверждение направления копии
+  mi_ob_has_no_causality_docs : INTEGER -- 0/1: акты об отсутствии причинной связи
+  mi_ob_has_due_care_docs : INTEGER   -- 0/1: док-ты добросовестности ответчика
+  mi_ob_has_alt_cause_med : INTEGER   -- 0/1: мед.док-ты об альтернативных причинах
+  mi_ob_has_claim_notices : INTEGER   -- 0/1: переписка/уведомления истца
+  mi_ob_has_support_witnesses : INTEGER -- 0/1: свидетели в пользу ответчика
+}
+
+' --- NLP-анализ текста обращения ---
+entity "NLP-анализ" as NlpAnalysis {
+  * case_id : INTEGER <<PK, FK Дела.id>> -- один к одному с делом
+  --
+  facts_json : TEXT          -- JSON-массив буллетов фактов из description
+  entities_json : TEXT       -- JSON сущностей (ФИО, ORG, MONEY, DATE, адреса)
+  auto_flags_json : TEXT     -- JSON флагов доказательств, предложенных NLP
+  text_features_version : TEXT -- версия TF-IDF/модели p_success
+  nlp_notes : TEXT           -- служебные заметки
+  updated_at : TEXT          -- дата последнего NLP-анализа
+}
+
+' --- Документы ---
+entity "Документы" as Documents {
+  * id : INTEGER <<PK>>
+  + case_id : INTEGER <<FK Дела.id>>
+  --
+  doc_type : TEXT         -- 'pretension' | 'claim' | 'objection' | 'motion'
+  template_name : TEXT    -- имя шаблона Jinja2
+  file_path : TEXT        -- путь к .docx/.pdf
+  mime_type : TEXT        -- MIME-тип
+  file_size : INTEGER     -- размер файла (байты)
+  kb_articles : TEXT      -- перечень использованных норм (JSON/CSV)
+  created_at : TEXT       -- дата генерации
+}
+
+' --- Сроки и этапы (календарь) ---
+entity "Сроки и этапы (Календарь)" as Deadlines {
+  * id : INTEGER <<PK>>
+  + case_id : INTEGER <<FK Дела.id>>
+  --
+  title : TEXT       -- этап: "Отправить претензию", "Подать иск" и т.п.
+  due_date : TEXT    -- крайняя дата (ISO 8601)
+  status : TEXT      -- 'planned' | 'done' | 'overdue'
+  source : TEXT      -- правило из kb.timeline.*
+  created_at : TEXT
+  updated_at : TEXT
+}
+
+' --- Связи ---
+Users  ||--o{ Cases       : "пользователь ведёт несколько дел"
+Courts ||--o{ Cases       : "в выбранный суд подаются дела"
+Cases  ||--|| NlpAnalysis : "каждое дело имеет один NLP-анализ"
+Cases  ||--o{ Documents   : "по делу создаются документы"
+Cases  ||--o{ Deadlines   : "по делу формируются этапы/сроки"
+
+' --- Примечания ---
+note right of NlpAnalysis
+  Используется для:
+   - выделения фактов (facts_json) из текста обращения;
+   - извлечения сущностей (entities_json) для автозаполнения формы;
+   - предложения флагов доказательств (auto_flags_json),
+     которые затем подтверждаются пользователем;
+   - фиксации версии NLP-пайплайна для p_success.
+end note
+
+note right of Cases
+  Поле p_success опирается на:
+   - флаги доказательств (rg_*, hu_*, mi_*),
+   - числовые признаки (amount, давность события),
+   - текстовые признаки из description (TF-IDF в scikit-learn).
+end note
+
+@enduml
