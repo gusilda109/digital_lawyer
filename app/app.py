@@ -162,7 +162,7 @@ CATEGORY_LABELS = {
     "Возврат товара": "return_goods",
     "Компенсация услуг ЖКХ": "housing_utilities",
     "Мелкий вред здоровью": "minor_injury",
-}
+}#мелкий аред здоровью пока есть, но впоследствии будет только 2 категории.
 
 DOC_TYPE_LABELS = {
     "return_goods": {
@@ -419,9 +419,6 @@ with st.form("case_form"):
 
     
         else:
-            
-            
-
             selected_court = courts[court_idx]
 
             # Users
